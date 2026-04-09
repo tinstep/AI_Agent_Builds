@@ -76,26 +76,34 @@ The playlist will contain only those songs that are both popular (from the chose
 
 ### Using Spotify (better popularity data)
 
-Spotify provides up-to-date popularity scores and a larger catalog. Setup:
+Spotify provides up-to-date popularity scores and a larger catalog.
 
-1. **Create a Spotify app** at <https://developer.spotify.com/dashboard/> (any name, redirect `http://localhost:8888/callback`).
-2. **Get your Client ID and Secret** from the app dashboard.
-3. **Set environment variables**:
+**1. Create a Spotify app** at <https://developer.spotify.com/dashboard/>. Any name; redirect URI can be `http://localhost:8888/callback`.
 
-   ```bash
-   export SPOTIPY_CLIENT_ID="your-client-id"
-   export SPOTIPY_CLIENT_SECRET="your-client-secret"
-   ```
+**2. Get your Client ID and Secret** from the app dashboard.
 
-   Add to `~/.bashrc` or `~/.profile` to persist.
+**3. Configure credentials** (pick one):
 
-4. **Use the Spotify source**:
+- **Environment variables** (temporary):
+  ```bash
+  export SPOTIPY_CLIENT_ID="your-id"
+  export SPOTIPY_CLIENT_SECRET="your-secret"
+  ```
 
-   ```bash
-   musicgen popular "shoegaze" --source spotify --limit 100 --output shoegaze_spotify.m3u
-   ```
+- **Config file** (persistent, recommended):
+  ```bash
+  mkdir -p ~/.config/musicgen
+  cp /path/to/music-genre-playlist/config.ini.example ~/.config/musicgen/config.ini
+  # Edit ~/.config/musicgen/config.ini and fill in client_id/client_secret
+  ```
 
-   Spotify's genre search uses album genre tags; results are sorted by track popularity (0-100).
+**4. Use the Spotify source**:
+
+  ```bash
+  musicgen popular "shoegaze" --source spotify --limit 100 --output shoegaze_spotify.m3u
+  ```
+
+  Results are sorted by track popularity (0–100). Genre search uses album tags; try variations ("rock", "hard rock", "alternative") if results are thin.
 
 ### Using custom song lists
 

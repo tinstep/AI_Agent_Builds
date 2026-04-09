@@ -10,6 +10,7 @@ import sqlite3
 import hashlib
 import re
 import time
+import configparser
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Tuple
@@ -30,6 +31,30 @@ MUSIC_DIR = Path.home() / "nfs" / "sm1-music"
 CACHE_DIR = Path.home() / ".cache" / "musicgen"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = CACHE_DIR / "library.db"
+
+# Config file location
+CONFIG_PATH = Path.home() / ".config" / "musicgen" / "config.ini"
+
+def _load_spotify_credentials():
+    """Load Spotify client_id and client_secret from env or config file."""
+    client_id = os.getenv("SPOTIPY_CLIENT_ID")
+    client_secret = os.getenv("SPOTIPY_CLIENT_SECRET")
+    if client_id and client_secret:
+        return client_id, client_secret
+    if CONFIG_PATH.exists():
+        cp = configparser.ConfigParser()
+        cp.read(CONFIG_PATH)
+        if 'spotify' in cp:
+            section = cp['spotify']
+            client_id = section.get('client_id') or client_id
+            client_secret = section.get('client_secret') or client_secret
+    if client_id and client_secret:
+        return client_id, client_secret
+    raise RuntimeError(
+        "Spotify credentials not found.\n"
+        "Set SPOTIPY_CLIENT_ID/SPOTIPY_CLIENT_SECRET env vars, or create a config file at "
+        f"{CONFIG_PATH} with [spotify] section and client_id/client_secret keys."
+    )
 
 # Supported file extensions (case-insensitive)
 AUDIO_EXTENSIONS = {'.flac', '.mp3', '.m4a', '.ogg', '.wav', '.ape', '.wv', '.mpc'}
@@ -178,13 +203,7 @@ def _fetch_itunes(genre: str, limit: int = 50) -> List[dict]:
 # ----------------------------------------------------------------------
 def _fetch_spotify(genre: str, limit: int = 50) -> List[dict]:
     """Fetch top tracks for a genre from Spotify API, sorted by popularity."""
-    client_id = os.getenv("SPOTIPY_CLIENT_ID")
-    client_secret = os.getenv("SPOTIPY_CLIENT_SECRET")
-    if not client_id or not client_secret:
-        raise RuntimeError(
-            "Spotify credentials not found. Set SPOTIPY_CLIENT_ID and SPOTIPY_CLIENT_SECRET environment variables.\n"
-            "Get them from https://developer.spotify.com/dashboard/"
-        )
+    client_id, client_secret = _load_spotify_credentials()
 
     auth_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
     sp = spotipy.Spotify(auth_manager=auth_manager)

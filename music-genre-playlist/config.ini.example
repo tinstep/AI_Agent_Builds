@@ -1,0 +1,5 @@
+[spotify]
+# Spotify API credentials for Music Genre Playlist Creator
+# Get these from https://developer.spotify.com/dashboard/
+client_id = your-spotify-client-id-here
+client_secret = your-spotify-client-secret-here
