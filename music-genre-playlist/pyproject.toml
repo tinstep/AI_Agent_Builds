@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "musicgen"
+version = "0.1.0"
+description = "Local music playlist generator based on genre popularity"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.0.0",
+    "mutagen",
+    "requests",
+]
+
+[project.scripts]
+musicgen = "musicgen:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]

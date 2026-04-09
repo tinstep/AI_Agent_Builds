@@ -1,0 +1,7 @@
+music-genre-playlist/
+├── musicgen.py           # Main script
+├── requirements.txt      # Dependencies
+├── README.md
+├── pyproject.toml        # For venv/packaging (optional)
+└── cache/
+    └── library.db         # SQLite cache (created on first run)
