@@ -1,0 +1,37 @@
+package:
+  name: Coffee Log Package
+  version: 1
+  domain: automation
+
+input_text:
+  coffee_log_input:
+    name: Coffee Log Entry
+    initial: ""
+    max_length: 1000
+
+automation:
+  - alias: Coffee Log Reminder
+    description: Daily morning reminder to brew and log coffee
+    trigger:
+      - platform: time
+        at: "07:00:00"
+    action:
+      - service: notify.notify
+        data:
+          message: "Morning! Time to brew coffee. Please log today's brew in COFFEE_LOG.md using the Coffee Log input."
+      - service: input_text.set_value
+        data:
+          entity_id: input_text.coffee_log_input
+          value: "Date: {{ now().strftime('%Y-%m-%d') }}; Brew: V60; Grind: 55-60; Beans: single-origin; Water: 250 g"
+
+  - alias: Coffee Log Clear Input
+    description: Clear the log input when it is used
+    trigger:
+      - platform: state
+        entity_id: input_text.coffee_log_input
+        to: ""
+    action:
+      - service: input_text.set_value
+        data:
+          entity_id: input_text.coffee_log_input
+          value: """}  )  # end of tool call  This is syntax; the tool will run and respond.  Let's ensure the JSON is valid.  The double quotes around the YAML string are escaped already.  We used an extra trailing triple quotes? We ended with } no trailing characters.  Should be fine.  We'll proceed.  

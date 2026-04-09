@@ -1,12 +1,12 @@
 # Music Genre Playlist Generator (`musicgen`)
 
-A command-line tool that creates M3U playlists from your local music collection based on a genre, by cross-referencing popular songs from the iTunes API with your locally available tracks.
+A command-line tool that creates M3U playlists from your local music collection based on a genre, by cross-referencing popular songs from the iTunes or Spotify APIs with your locally available tracks.
 
 ## Features
 
 - Indexes your music library once and caches metadata (artist, title, album, genre) in SQLite
 - Only rescans changed files on subsequent runs (fast incremental updates)
-- Fetches current popular songs for a given genre from iTunes Search API (no API key required)
+- Fetches current popular songs for a given genre from iTunes Search API (no API key required) **or** Spotify API (with credentials)
 - Fuzzy matches popular songs against your local collection (handles minor differences in artist/title formatting)
 - Generates a standard M3U playlist that can be used with any music player
 - Designed for large music collections (100k+ tracks) with batch commits to avoid memory issues
@@ -65,24 +65,47 @@ Once the index is built, generate a playlist for any genre:
 ```bash
 musicgen.py popular "rock" --output rock.m3u
 ```
-
 Options:
-- `--limit N` – how many popular songs to fetch from iTunes (default: 100)
-- `--fuzz THRESHOLD` – matching strictness (0.7–0.95). Lower for more relaxed matching.
+- `--limit N` – how many popular songs to fetch (default: 100)
+- `--fuzzy THRESHOLD` – matching strictness (0.7–0.95). Lower for more relaxed matching.
 - `--output FILE` – output path (default: `<genre>_playlist.m3u` in current directory)
-- `--songs-file FILE` – use a custom list from a text file (one "Artist - Title" per line) instead of iTunes
+- `--songs-file FILE` – use a custom list from a text file (one "Artist - Title" per line) instead of API
+- `--source [itunes|spotify]` – choose the backend for popular songs (default: itunes)
 
-The playlist will contain only those songs that are both popular (from iTunes) **and** present in your local collection.
+The playlist will contain only those songs that are both popular (from the chosen source) **and** present in your local collection.
 
-### Using AI-generated song lists
+### Using Spotify (better popularity data)
 
-You can also ask an AI assistant to browse the web for "top [genre] songs" and output the results in a file. Save it as `songs.txt` and then run:
+Spotify provides up-to-date popularity scores and a larger catalog. Setup:
+
+1. **Create a Spotify app** at <https://developer.spotify.com/dashboard/> (any name, redirect `http://localhost:8888/callback`).
+2. **Get your Client ID and Secret** from the app dashboard.
+3. **Set environment variables**:
+
+   ```bash
+   export SPOTIPY_CLIENT_ID="your-client-id"
+   export SPOTIPY_CLIENT_SECRET="your-client-secret"
+   ```
+
+   Add to `~/.bashrc` or `~/.profile` to persist.
+
+4. **Use the Spotify source**:
+
+   ```bash
+   musicgen popular "shoegaze" --source spotify --limit 100 --output shoegaze_spotify.m3u
+   ```
+
+   Spotify's genre search uses album genre tags; results are sorted by track popularity (0-100).
+
+### Using custom song lists
+
+Provide your own list (one per line in `Artist - Title` format), e.g.:
 
 ```bash
-musicgen.py popular "rock" --songs-file songs.txt --output rock.m3u
+musicgen popular "rock" --songs-file my_top_rock.txt --output rock.m3u
 ```
 
-The file should contain one song per line in the format `Artist - Title`. This gives you flexibility to use any source (Last.fm, Wikipedia, your own list) without changing the tool.
+Useful for AI-generated lists, Last.fm charts, Wikipedia tables, or personal collections.
 
 ## How it works
 

@@ -1,0 +1,13 @@
+{
+  "brew": "V60",
+  "grinder": "DF54",
+  "grind_setting": 58,
+  "beans": "single-origin",
+  "water_temp": 94,
+  "ratio_g_roasted": 15,
+  "water_total_g": 250,
+  "bloom": {"water_g": 25, "seconds": 45},
+  "pour_sequence": [70,75,75],
+  "total_time_s": 180,
+  "notes": "baseline profile"
+}

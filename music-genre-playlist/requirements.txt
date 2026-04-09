@@ -1,3 +1,4 @@
 click>=8.0.0
 mutagen
 requests
+spotipy>=5.0

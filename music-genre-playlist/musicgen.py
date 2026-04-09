@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 musicgen – Scan local music library and generate M3U playlists
-based on genre, using popular songs from iTunes API as reference.
+based on genre, using popular songs from iTunes or Spotify APIs.
 """
 
 import os
@@ -9,6 +9,7 @@ import sys
 import sqlite3
 import hashlib
 import re
+import time
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Tuple
@@ -18,6 +19,9 @@ from mutagen import File
 from mutagen.flac import FLAC
 from mutagen.mp3 import MP3
 import requests
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
+import os
 
 # ----------------------------------------------------------------------
 # Configuration
@@ -140,14 +144,27 @@ def index_library(conn, force_rescan: bool = False):
 # ----------------------------------------------------------------------
 ITUNES_SEARCH_URL = "https://itunes.apple.com/search"
 
-def fetch_popular_songs(genre: str, limit: int = 50) -> List[dict]:
+def fetch_popular_songs(genre: str, limit: int = 50, source: str = 'itunes') -> List[dict]:
+    """Fetch popular songs for a genre from the specified source."""
+    if source == 'itunes':
+        return _fetch_itunes(genre, limit)
+    elif source == 'spotify':
+        return _fetch_spotify(genre, limit)
+    else:
+        raise ValueError(f"Unknown source: {source}")
+
+# ----------------------------------------------------------------------
+# iTunes backend
+# ----------------------------------------------------------------------
+ITUNES_SEARCH_URL = "https://itunes.apple.com/search"
+
+def _fetch_itunes(genre: str, limit: int = 50) -> List[dict]:
     """Query iTunes API for popular songs in the given genre."""
-    # The search term is just the genre. We'll ask for songs only.
     params = {
         "term": genre,
         "entity": "song",
         "limit": limit,
-        "country": "US",  # Could be made configurable
+        "country": "US",
     }
     resp = requests.get(ITUNES_SEARCH_URL, params=params, timeout=15)
     resp.raise_for_status()
@@ -155,6 +172,56 @@ def fetch_popular_songs(genre: str, limit: int = 50) -> List[dict]:
     results = data.get("results", [])
     click.echo(f"Fetched {len(results)} songs from iTunes for genre '{genre}' (raw search results).")
     return results
+
+# ----------------------------------------------------------------------
+# Spotify backend
+# ----------------------------------------------------------------------
+def _fetch_spotify(genre: str, limit: int = 50) -> List[dict]:
+    """Fetch top tracks for a genre from Spotify API, sorted by popularity."""
+    client_id = os.getenv("SPOTIPY_CLIENT_ID")
+    client_secret = os.getenv("SPOTIPY_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        raise RuntimeError(
+            "Spotify credentials not found. Set SPOTIPY_CLIENT_ID and SPOTIPY_CLIENT_SECRET environment variables.\n"
+            "Get them from https://developer.spotify.com/dashboard/"
+        )
+
+    auth_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
+    sp = spotipy.Spotify(auth_manager=auth_manager)
+
+    all_tracks = []
+    per_page = min(50, limit)  # Spotify max per request
+    pages = (limit + per_page - 1) // per_page
+
+    for page in range(pages):
+        offset = page * per_page
+        try:
+            results = sp.search(q=f'genre:"{genre}"', type='track', limit=per_page, offset=offset)
+        except spotipy.SpotifyException as e:
+            if e.http_status == 429:
+                retry_after = int(e.headers.get('Retry-After', 5))
+                click.echo(f"Rate limited. Waiting {retry_after}s...")
+                time.sleep(retry_after)
+                results = sp.search(q=f'genre:"{genre}"', type='track', limit=per_page, offset=offset)
+            else:
+                raise
+        tracks = results.get('tracks', {}).get('items', [])
+        if not tracks:
+            break
+        for t in tracks:
+            artist = t['artists'][0]['name'] if t['artists'] else 'Unknown Artist'
+            all_tracks.append({
+                'artistName': artist,
+                'trackName': t['name'],
+                'popularity': t.get('popularity', 0)
+            })
+        if len(tracks) < per_page:
+            break
+
+    # Sort by popularity descending and take top 'limit'
+    all_tracks.sort(key=lambda x: x['popularity'], reverse=True)
+    click.echo(f"Fetched {len(all_tracks)} tracks from Spotify for genre '{genre}' (sorted by popularity).")
+    return all_tracks[:limit]
 
 # ----------------------------------------------------------------------
 # Matching
@@ -227,8 +294,9 @@ def scan(force: bool = False):
 @click.option('--limit', default=100, help="Number of popular songs to fetch")
 @click.option('--output', '-o', type=click.Path(), help="Output M3U file path")
 @click.option('--fuzzy', default=0.85, help="Fuzzy matching threshold (0-1)")
-@click.option('--songs-file', type=click.File('r'), help="File with one 'Artist - Title' per line; overrides iTunes fetch")
-def popular(genre: str, limit: int, output: Optional[str], fuzzy: float, songs_file):
+@click.option('--songs-file', type=click.File('r'), help="File with one 'Artist - Title' per line; overrides API fetch")
+@click.option('--source', type=click.Choice(['itunes', 'spotify']), default='itunes', help='Source for popular songs (default: itunes)')
+def popular(genre: str, limit: int, output: Optional[str], fuzzy: float, songs_file, source: str):
     """Fetch popular songs for a genre, match against local library, generate M3U."""
     conn = init_db()
     try:
@@ -253,8 +321,8 @@ def popular(genre: str, limit: int, output: Optional[str], fuzzy: float, songs_f
                 else:
                     click.echo(f"Warning: skipping malformed line: {line}", err=True)
         else:
-            click.echo(f"Fetching top {limit} songs for genre '{genre}' from iTunes...")
-            songs = fetch_popular_songs(genre, limit=limit)
+            click.echo(f"Fetching top {limit} songs for genre '{genre}' from {source}...")
+            songs = fetch_popular_songs(genre, limit=limit, source=source)
 
         matches = []
         for song in songs:
@@ -284,11 +352,12 @@ def popular(genre: str, limit: int, output: Optional[str], fuzzy: float, songs_f
 @cli.command()
 @click.argument('genre')
 @click.option('--limit', default=100, help="Number of popular songs to fetch")
-def playlist(genre: str, limit: int):
+@click.option('--source', type=click.Choice(['itunes', 'spotify']), default='itunes', help='Source for popular songs')
+def playlist(genre: str, limit: int, source: str):
     """Shortcut: fetch and generate playlist with default name."""
     # Use popular command internally
     ctx = click.get_current_context()
-    ctx.invoke(popular, genre=genre, limit=limit, output=None, fuzzy=0.85)
+    ctx.invoke(popular, genre=genre, limit=limit, output=None, fuzzy=0.85, source=source)
 
 if __name__ == '__main__':
     cli()
