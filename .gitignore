@@ -1,0 +1,49 @@
+# Economic Data API MVP - .gitignore
+
+# Virtual environment
+venv_openclaw/
+venv/
+.venv/
+env/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE/editor configs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+
+# Cache
+.cache/
+.mypy_cache/
+.pytest_cache/
+
+# OpenClaw specific
+memory/
