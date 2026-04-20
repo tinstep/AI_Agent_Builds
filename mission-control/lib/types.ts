@@ -26,6 +26,14 @@ export interface ProjectSummary {
   runningAgents: number;
 }
 
+export interface ProjectDetail extends ProjectSummary {
+  description: string;
+  notes: string[];
+  launchables: string[];
+  cronJobs: string[];
+  linkedRepos: string[];
+}
+
 export interface TaskCardData {
   id: string;
   title: string;

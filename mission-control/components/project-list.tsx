@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { projectSummaries } from "@/lib/data";
 import { StatusChip } from "@/components/status-chip";
 
@@ -12,7 +13,11 @@ export function ProjectList() {
       </div>
       <div className="divide-y divide-white/10">
         {projectSummaries.map((project) => (
-          <div key={project.id} className="grid gap-4 px-5 py-4 md:grid-cols-[1.5fr_auto_auto_auto] md:items-center">
+          <Link
+            key={project.id}
+            href={`/projects/${project.slug}`}
+            className="grid gap-4 px-5 py-4 transition hover:bg-white/5 md:grid-cols-[1.5fr_auto_auto_auto] md:items-center"
+          >
             <div>
               <div className="flex items-center gap-3">
                 <h3 className="font-medium text-white">{project.name}</h3>
@@ -31,7 +36,7 @@ export function ProjectList() {
               <div className="mt-1 text-lg font-semibold text-white">{project.runningAgents}</div>
             </div>
             <div className="text-right text-sm text-slate-300">Open project →</div>
-          </div>
+          </Link>
         ))}
       </div>
     </div>

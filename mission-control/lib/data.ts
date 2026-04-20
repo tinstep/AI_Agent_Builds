@@ -1,4 +1,4 @@
-import { CronSummary, LaunchableSummary, ProjectSummary, TaskCardData } from "@/lib/types";
+import { CronSummary, LaunchableSummary, ProjectDetail, ProjectSummary, TaskCardData } from "@/lib/types";
 
 export const projectSummaries: ProjectSummary[] = [
   {
@@ -77,4 +77,43 @@ export const githubConnection = {
   scopes: ["repo", "read:org", "workflow"],
   linkedRepos: 2,
   lastValidated: "Just now",
+};
+
+export const projectDetails: Record<string, ProjectDetail> = {
+  "mission-control": {
+    ...projectSummaries[0],
+    description:
+      "Mission Control is the operator dashboard for managing projects, sub-agents, launches, cron jobs, and GitHub-linked delivery from one console.",
+    notes: [
+      "Build the operator-first UI before wiring every integration.",
+      "Use GitHub PAT as the canonical GitHub auth model.",
+    ],
+    launchables: ["Sync GitHub Mirrors", "Dispatch Sub-agent Task"],
+    cronJobs: ["Mission Control Sync"],
+    linkedRepos: ["tinstep/mission-control"],
+  },
+  "home-lab-automation": {
+    ...projectSummaries[1],
+    description:
+      "Automation work for the home lab and Home Assistant, with reusable scheduled flows and operational jobs.",
+    notes: [
+      "Keep cron-backed maintenance visible in Mission Control.",
+      "Prefer reusable launchables over one-off scripts.",
+    ],
+    launchables: ["Refresh Cron Inventory"],
+    cronJobs: ["Morning Briefing"],
+    linkedRepos: ["tinstep/home-lab"],
+  },
+  "music-genre-playlist": {
+    ...projectSummaries[2],
+    description:
+      "Existing playlist generation and merge tooling in the workspace for genre-based music workflows.",
+    notes: [
+      "Backed by the existing openclaw workspace folder.",
+      "Needs project-level task tracking and launch registration.",
+    ],
+    launchables: ["Generate Genre Playlist", "Merge Playlists"],
+    cronJobs: [],
+    linkedRepos: ["local/music-genre-playlist"],
+  },
 };
