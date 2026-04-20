@@ -23,6 +23,17 @@ export const projectSummaries: ProjectSummary[] = [
     activeTasks: 3,
     runningAgents: 0,
   },
+  {
+    id: "p3",
+    name: "Music Genre Playlist",
+    slug: "music-genre-playlist",
+    status: "active",
+    priority: "medium",
+    summary: "Playlist generation and merging tools for genre-based music workflows, backed by the existing workspace folder.",
+    repo: "local/music-genre-playlist",
+    activeTasks: 2,
+    runningAgents: 0,
+  },
 ];
 
 export const taskBoard: Record<string, TaskCardData[]> = {
