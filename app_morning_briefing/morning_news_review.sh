@@ -6,6 +6,9 @@
 TELEGRAM_BOT_TOKEN="8716820667:AAHmx_p-FFY-AlWVmtu-GGZpIR-sfWbltaI"
 TELEGRAM_CHANNEL_ID="-1003858890671"
 
+# Optional external news source: set to a SEARXNG instance, e.g. https://searx.example
+SEARXNG_URL=""
+
 # News topics (customize as needed)
 TOPICS=(
     "technology AI innovation"
@@ -22,10 +25,23 @@ fetch_news() {
     # Encode topic for URL using jq for robustness
     encoded_topic=$(printf "%s" "$topic" | jq -sR @uri)
     
-    # Construct the query URL directly
+    # Attempt SEARXNG first if configured
+    if [ -n "$SEARXNG_URL" ]; then
+        if command -v jq >/dev/null 2>&1; then
+            local se_query_url="${SEARXNG_URL%/}/search?format=json&q=${encoded_topic}"
+            se_json=$(curl -s "$se_query_url" 2>/dev/null || true)
+            if [ -n "$se_json" ]; then
+                headlines=$(echo "$se_json" | jq -r '.results[]? | "- [\(.title)](\(.url))"')
+                if [ -n "$headlines" ]; then
+                    echo "$headlines"
+                    return
+                fi
+            fi
+        fi
+    fi
+
+    # Fallback to Google News RSS
     local query_url="https://news.google.com/rss/search?q=${encoded_topic}&hl=en-US&gl=US&ceid=US:en"
-    
-    # Directly execute curl command with proper quoting
     rss=$(curl -s "$query_url")
 
     # Use AWK to parse RSS items directly from the fetched content

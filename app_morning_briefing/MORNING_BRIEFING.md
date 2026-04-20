@@ -13,10 +13,11 @@ A concise daily news briefing delivered to Telegram at 7:30 AM every day.
 
 ### 1. Get API Keys
 
-**Tavily API** (for news search):
-- Visit https://tavily.com and sign up
-- Get your API key from the dashboard
-- Optional: Tavily has a free tier sufficient for daily news
+**News source** (choose one):
+- **SEARXNG** (recommended, self-hosted or trusted instance): set `SEARXNG_URL` to your instance base URL, e.g. `https://searx.example`
+- **Tavily API** (external service): visit https://tavily.com, sign up, and get an API key from the dashboard (free tier available)
+
+Note: If `SEARXNG_URL` is set, the script will use it first; otherwise it falls back to Tavily (if key present) or Google News RSS.
 
 **Telegram Bot**:
 - Message @BotFather on Telegram

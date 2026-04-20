@@ -6,6 +6,9 @@
 TELEGRAM_BOT_TOKEN="8716820667:AAHmx_p-FFY-AlWVmtu-GGZpIR-sfWbltaI"
 TELEGRAM_CHANNEL_ID="-1003858890671"
 
+# Optional external news source: set to a SEARXNG instance base URL
+SEARXNG_URL=""
+
 # News topics to cover (customize as needed)
 TOPICS=(
     "technology AI innovation"
@@ -18,6 +21,21 @@ TOPICS=(
 fetch_news() {
     local topic="$1"
     local output=""
+
+    # Try SEARXNG first if configured
+    if [ -n "$SEARXNG_URL" ] && command -v jq >/dev/null 2>&1; then
+        local encoded_topic se_query_url se_json headlines
+        encoded_topic=$(printf "%s" "$topic" | jq -sR @uri)
+        se_query_url="${SEARXNG_URL%/}/search?format=json&q=${encoded_topic}"
+        se_json=$(curl -s "$se_query_url" 2>/dev/null || true)
+        if [ -n "$se_json" ]; then
+            headlines=$(echo "$se_json" | jq -r '.results[]? | "- [\(.title)](\(.url))"' 2>/dev/null || true)
+            if [ -n "$headlines" ]; then
+                echo "$headlines"
+                return
+            fi
+        fi
+    fi
 
     # Use Tavily if API key is available
     if [ -n "$TAVILY_API_KEY" ]; then
