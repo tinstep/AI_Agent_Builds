@@ -22,7 +22,7 @@ A command-line tool that creates M3U playlists from your local music collection 
 1. Clone or copy this project to your machine:
 
    ```bash
-   cd /home/cam/.openclaw/workspace/music-genre-playlist
+   cd /home/cam/.openclaw/workspace/app_music_genre_playlist
    ```
 
 2. Create a virtual environment and install dependencies:
@@ -93,7 +93,7 @@ Spotify provides up-to-date popularity scores and a larger catalog.
 - **Config file** (persistent, recommended):
   ```bash
   mkdir -p ~/.config/musicgen
-  cp /path/to/music-genre-playlist/config.ini.example ~/.config/musicgen/config.ini
+  cp /path/to/app_music_genre_playlist/config.ini.example ~/.config/musicgen/config.ini
   # Edit ~/.config/musicgen/config.ini and fill in client_id/client_secret
   ```
 

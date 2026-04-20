@@ -26,11 +26,11 @@ export const projectSummaries: ProjectSummary[] = [
   {
     id: "p3",
     name: "Music Genre Playlist",
-    slug: "music-genre-playlist",
+    slug: "app_music_genre_playlist",
     status: "active",
     priority: "medium",
     summary: "Playlist generation and merging tools for genre-based music workflows, backed by the existing workspace folder.",
-    repo: "local/music-genre-playlist",
+    repo: "local/app_music_genre_playlist",
     activeTasks: 2,
     runningAgents: 0,
   },
@@ -104,7 +104,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
     cronJobs: ["Morning Briefing"],
     linkedRepos: ["tinstep/home-lab"],
   },
-  "music-genre-playlist": {
+  app_music_genre_playlist: {
     ...projectSummaries[2],
     description:
       "Existing playlist generation and merge tooling in the workspace for genre-based music workflows.",
@@ -114,6 +114,6 @@ export const projectDetails: Record<string, ProjectDetail> = {
     ],
     launchables: ["Generate Genre Playlist", "Merge Playlists"],
     cronJobs: [],
-    linkedRepos: ["local/music-genre-playlist"],
+    linkedRepos: ["local/app_music_genre_playlist"],
   },
 };

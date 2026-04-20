@@ -246,31 +246,50 @@ def _fetch_spotify(genre: str, limit: int = 50) -> List[dict]:
 # Matching
 # ----------------------------------------------------------------------
 def load_library(conn) -> dict:
-    """Load entire track cache into a dict keyed by normalized artist+title."""
+    """Load entire track cache into a nested dict: {norm_artist: {norm_title: [track]}}."""
     cur = conn.cursor()
     cur.execute("SELECT artist, title, filepath FROM tracks")
     rows = cur.fetchall()
     library = {}
     for artist, title, filepath in rows:
-        key = normalize_text(f"{artist} {title}")
-        library.setdefault(key, []).append({"artist": artist, "title": title, "filepath": filepath})
+        artist_norm = normalize_text(artist)
+        title_norm = normalize_text(title)
+        library.setdefault(artist_norm, {})[title_norm] = [{"artist": artist, "title": title, "filepath": filepath}]
     return library
 
 def match_local_track(library: dict, artist: str, title: str, fuzzy_threshold: float = 0.85):
-    """Find best match in library for given artist+title."""
+    """Find best match in library for given artist+title using artist-first lookup."""
     from difflib import SequenceMatcher
-    key = normalize_text(f"{artist} {title}")
-    if key in library:
-        return library[key][0]
-    # Fuzzy fallback
-    best_match = None
+    artist_norm = normalize_text(artist)
+    title_norm = normalize_text(title)
+    # 1. Check exact artist match
+    if artist_norm in library:
+        artist_tracks = library[artist_norm]
+        # 1a. Exact title within artist
+        if title_norm in artist_tracks:
+            return artist_tracks[title_norm][0]
+        # 1b. Fuzzy title within same artist (small set)
+        best = None
+        best_score = 0.0
+        for t_key, tracks in artist_tracks.items():
+            score = SequenceMatcher(None, title_norm, t_key).ratio()
+            if score > best_score and score >= fuzzy_threshold:
+                best_score = score
+                best = tracks[0]
+        if best:
+            return best
+    # 2. No artist match or no good title match: fall back to global fuzzy search across all tracks
+    best = None
     best_score = 0.0
-    for lib_key, tracks in library.items():
-        score = SequenceMatcher(None, key, lib_key).ratio()
-        if score > best_score and score >= fuzzy_threshold:
-            best_score = score
-            best_match = tracks[0]
-    return best_match
+    combo = f"{artist_norm} {title_norm}"
+    for a_key, a_tracks in library.items():
+        for t_key, tracks in a_tracks.items():
+            lib_combo = f"{a_key} {t_key}"
+            score = SequenceMatcher(None, combo, lib_combo).ratio()
+            if score > best_score and score >= fuzzy_threshold:
+                best_score = score
+                best = tracks[0]
+    return best
 
 # ----------------------------------------------------------------------
 # M3U generation
