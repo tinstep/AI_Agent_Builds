@@ -1,0 +1,500 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  IDEA
+  PLANNED
+  ACTIVE
+  BLOCKED
+  MAINTENANCE
+  COMPLETED
+  ARCHIVED
+}
+
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TaskStatus {
+  BACKLOG
+  READY
+  IN_PROGRESS
+  REVIEW
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum AssigneeType {
+  HUMAN
+  SUB_AGENT
+  UNASSIGNED
+}
+
+enum AgentRunStatus {
+  QUEUED
+  STARTING
+  RUNNING
+  WAITING
+  BLOCKED
+  FAILED
+  COMPLETED
+  CANCELLED
+}
+
+enum LaunchSafetyLevel {
+  SAFE_READ_ONLY
+  SAFE_INTERNAL_WRITE
+  ELEVATED_INTERNAL_ACTION
+  EXTERNAL_SIDE_EFFECT
+}
+
+enum LaunchRunStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum CronHealthStatus {
+  HEALTHY
+  WARNING
+  FAILING
+  DISABLED
+  UNKNOWN
+}
+
+enum GitHubCredentialStatus {
+  VALID
+  INVALID
+  EXPIRED
+  REVOKED
+  UNKNOWN
+}
+
+enum ActivityObjectType {
+  PROJECT
+  BOARD
+  COLUMN
+  TASK
+  AGENT_RUN
+  LAUNCHABLE
+  LAUNCH_RUN
+  CRON_JOB
+  CRON_RUN
+  GITHUB_CREDENTIAL
+  GITHUB_REPO
+  GITHUB_ISSUE
+  GITHUB_PULL_REQUEST
+  SYSTEM
+}
+
+model User {
+  id             String           @id @default(uuid()) @db.Uuid
+  email          String?          @unique
+  name           String
+  role           String           @default("operator")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  createdNotes   ProjectNote[]
+  createdTasks   Task[]           @relation("TaskCreatedBy")
+  comments       TaskComment[]
+  launchRuns     LaunchRun[]      @relation("LaunchInitiator")
+  activityEvents ActivityEvent[]  @relation("ActivityActor")
+}
+
+model Project {
+  id            String             @id @default(uuid()) @db.Uuid
+  slug          String             @unique
+  name          String
+  description   String?
+  status        ProjectStatus
+  priority      ProjectPriority
+  tags          Json               @default("[]")
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  archivedAt    DateTime?
+  board         Board?
+  notes         ProjectNote[]
+  tasks         Task[]
+  launchables   Launchable[]
+  launchRuns    LaunchRun[]
+  cronJobs      CronJobMirror[]
+  githubRepos   GitHubRepoLink[]
+  activityEvents ActivityEvent[]
+}
+
+model ProjectNote {
+  id         String    @id @default(uuid()) @db.Uuid
+  projectId  String    @db.Uuid
+  title      String?
+  body       String
+  createdBy  String?   @db.Uuid
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author     User?     @relation(fields: [createdBy], references: [id])
+
+  @@index([projectId])
+}
+
+model Board {
+  id         String        @id @default(uuid()) @db.Uuid
+  projectId  String        @unique @db.Uuid
+  name       String
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  project    Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  columns    BoardColumn[]
+  tasks      Task[]
+}
+
+model BoardColumn {
+  id         String    @id @default(uuid()) @db.Uuid
+  boardId    String    @db.Uuid
+  key        String
+  name       String
+  position   Int
+  color      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  board      Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks      Task[]
+
+  @@unique([boardId, key])
+  @@unique([boardId, position])
+}
+
+model Task {
+  id                     String        @id @default(uuid()) @db.Uuid
+  projectId              String        @db.Uuid
+  boardId                String        @db.Uuid
+  columnId               String        @db.Uuid
+  parentTaskId           String?       @db.Uuid
+  title                  String
+  description            String?
+  acceptanceCriteria     String?
+  status                 TaskStatus
+  priority               ProjectPriority
+  estimatePoints         Int?
+  assigneeType           AssigneeType
+  assigneeLabel          String?
+  githubIssueNumber      Int?
+  githubBranchName       String?
+  githubPullRequestNumber Int?
+  dueAt                  DateTime?
+  sortOrder              Decimal?
+  createdBy              String?       @db.Uuid
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  completedAt            DateTime?
+  project                Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  board                  Board         @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  column                 BoardColumn   @relation(fields: [columnId], references: [id])
+  parentTask             Task?         @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
+  subtasks               Task[]        @relation("TaskHierarchy")
+  author                 User?         @relation("TaskCreatedBy", fields: [createdBy], references: [id])
+  comments               TaskComment[]
+  attachments            TaskAttachment[]
+  agentRuns              AgentRun[]
+  launchRuns             LaunchRun[]
+
+  @@index([projectId])
+  @@index([boardId])
+  @@index([columnId])
+  @@index([status])
+  @@index([dueAt])
+}
+
+model TaskComment {
+  id         String    @id @default(uuid()) @db.Uuid
+  taskId      String    @db.Uuid
+  authorId    String?   @db.Uuid
+  body        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author      User?     @relation(fields: [authorId], references: [id])
+}
+
+model TaskAttachment {
+  id          String    @id @default(uuid()) @db.Uuid
+  taskId       String    @db.Uuid
+  name         String
+  storageType  String
+  storagePath  String
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+  task         Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model AgentRun {
+  id                      String          @id @default(uuid()) @db.Uuid
+  taskId                   String          @db.Uuid
+  sessionKey               String
+  externalRunId            String?
+  status                   AgentRunStatus
+  agentLabel               String?
+  dispatchPrompt           String?
+  summary                  String?
+  artifacts                Json            @default("[]")
+  linkedBranch             String?
+  linkedPullRequestNumber  Int?
+  startedAt                DateTime?
+  lastUpdateAt             DateTime?
+  completedAt              DateTime?
+  failureReason            String?
+  rawPayload               Json?
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+  task                     Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([sessionKey])
+  @@index([status])
+}
+
+model Launchable {
+  id                       String           @id @default(uuid()) @db.Uuid
+  projectId                String?          @db.Uuid
+  slug                     String           @unique
+  name                     String
+  description              String?
+  category                 String
+  executionType            String
+  handler                  String
+  inputSchema              Json?
+  defaultInputs            Json?
+  environmentRequirements  Json?
+  safetyLevel              LaunchSafetyLevel
+  enabled                  Boolean          @default(true)
+  tags                     Json             @default("[]")
+  version                  String?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+  project                  Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  runs                     LaunchRun[]
+}
+
+model LaunchRun {
+  id             String          @id @default(uuid()) @db.Uuid
+  launchableId   String          @db.Uuid
+  projectId      String?         @db.Uuid
+  taskId         String?         @db.Uuid
+  initiatedBy    String?         @db.Uuid
+  status         LaunchRunStatus
+  inputPayload   Json?
+  stdoutSummary  String?
+  stderrSummary  String?
+  logsRef        String?
+  artifacts      Json            @default("[]")
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  launchable     Launchable      @relation(fields: [launchableId], references: [id], onDelete: Cascade)
+  project        Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  task           Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  initiator      User?           @relation("LaunchInitiator", fields: [initiatedBy], references: [id])
+
+  @@index([launchableId])
+  @@index([projectId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model CronJobMirror {
+  id              String           @id @default(uuid()) @db.Uuid
+  projectId        String?          @db.Uuid
+  externalJobId    String           @unique
+  name             String
+  description      String?
+  scheduleKind     String
+  schedulePayload  Json
+  payloadKind      String
+  payloadSummary   String?
+  deliveryPayload  Json?
+  enabled          Boolean
+  healthStatus     CronHealthStatus @default(UNKNOWN)
+  lastRunAt        DateTime?
+  nextRunAt        DateTime?
+  lastSyncAt       DateTime?
+  rawPayload       Json?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  project          Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  runs             CronRunMirror[]
+
+  @@index([projectId])
+  @@index([enabled])
+  @@index([nextRunAt])
+}
+
+model CronRunMirror {
+  id             String        @id @default(uuid()) @db.Uuid
+  cronJobId       String        @db.Uuid
+  externalRunId   String?
+  status          String
+  summary         String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  rawPayload      Json?
+  createdAt       DateTime      @default(now())
+  cronJob         CronJobMirror @relation(fields: [cronJobId], references: [id], onDelete: Cascade)
+
+  @@index([cronJobId])
+  @@index([startedAt])
+}
+
+model GitHubCredential {
+  id               String                 @id @default(uuid()) @db.Uuid
+  name             String
+  provider         String                 @default("github")
+  authType         String                 @default("pat")
+  encryptedToken   String
+  tokenHint        String?
+  username         String?
+  externalUserId   String?
+  status           GitHubCredentialStatus @default(UNKNOWN)
+  lastValidatedAt  DateTime?
+  lastError        String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  repoLinks        GitHubRepoLink[]
+}
+
+model GitHubRepoLink {
+  id                String                    @id @default(uuid()) @db.Uuid
+  projectId         String                    @db.Uuid
+  credentialId      String                    @db.Uuid
+  owner             String
+  repo              String
+  defaultBranch     String?
+  purpose           String?
+  syncEnabled       Boolean                   @default(true)
+  syncIssues        Boolean                   @default(true)
+  syncPullRequests  Boolean                   @default(true)
+  syncCommits       Boolean                   @default(true)
+  lastSyncAt        DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  project           Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  credential        GitHubCredential          @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  issues            GitHubIssueMirror[]
+  pullRequests      GitHubPullRequestMirror[]
+  branches          GitHubBranchMirror[]
+  commits           GitHubCommitMirror[]
+
+  @@unique([projectId, owner, repo])
+  @@index([credentialId])
+  @@index([projectId])
+}
+
+model GitHubIssueMirror {
+  id               String          @id @default(uuid()) @db.Uuid
+  repoLinkId       String          @db.Uuid
+  externalNodeId   String?
+  issueNumber      Int
+  title            String
+  state            String
+  authorLogin      String?
+  assignees        Json            @default("[]")
+  labels           Json            @default("[]")
+  url              String
+  bodyExcerpt      String?
+  createdAtGitHub  DateTime?
+  updatedAtGitHub  DateTime?
+  lastSyncAt       DateTime?
+  rawPayload       Json?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  repoLink         GitHubRepoLink  @relation(fields: [repoLinkId], references: [id], onDelete: Cascade)
+
+  @@unique([repoLinkId, issueNumber])
+}
+
+model GitHubPullRequestMirror {
+  id                  String          @id @default(uuid()) @db.Uuid
+  repoLinkId          String          @db.Uuid
+  externalNodeId      String?
+  pullRequestNumber   Int
+  title               String
+  state               String
+  authorLogin         String?
+  headBranch          String?
+  baseBranch          String?
+  url                 String
+  draft               Boolean         @default(false)
+  mergeableState      String?
+  createdAtGitHub     DateTime?
+  updatedAtGitHub     DateTime?
+  lastSyncAt          DateTime?
+  rawPayload          Json?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  repoLink            GitHubRepoLink  @relation(fields: [repoLinkId], references: [id], onDelete: Cascade)
+
+  @@unique([repoLinkId, pullRequestNumber])
+}
+
+model GitHubBranchMirror {
+  id             String          @id @default(uuid()) @db.Uuid
+  repoLinkId      String          @db.Uuid
+  name           String
+  sha            String?
+  protected      Boolean         @default(false)
+  lastCommitAt   DateTime?
+  lastSyncAt     DateTime?
+  rawPayload     Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  repoLink       GitHubRepoLink  @relation(fields: [repoLinkId], references: [id], onDelete: Cascade)
+
+  @@unique([repoLinkId, name])
+}
+
+model GitHubCommitMirror {
+  id            String          @id @default(uuid()) @db.Uuid
+  repoLinkId     String          @db.Uuid
+  sha           String
+  authorName    String?
+  authorLogin   String?
+  message       String
+  committedAt   DateTime?
+  url           String?
+  lastSyncAt    DateTime?
+  rawPayload    Json?
+  createdAt     DateTime        @default(now())
+  repoLink      GitHubRepoLink  @relation(fields: [repoLinkId], references: [id], onDelete: Cascade)
+
+  @@unique([repoLinkId, sha])
+}
+
+model ActivityEvent {
+  id          String             @id @default(uuid()) @db.Uuid
+  actorId      String?            @db.Uuid
+  actionType   String
+  objectType   ActivityObjectType
+  objectId     String
+  projectId    String?            @db.Uuid
+  summary      String
+  metadata     Json?
+  occurredAt   DateTime
+  createdAt    DateTime           @default(now())
+  actor        User?              @relation("ActivityActor", fields: [actorId], references: [id])
+  project      Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([objectType])
+  @@index([occurredAt(sort: Desc)])
+}
